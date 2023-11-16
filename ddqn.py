@@ -93,8 +93,12 @@ def compute_critic_loss(
     """
     if q_target is None:
         q_target = q_values
-    max_q = q_target[1].amax(dim=-1).detach()
-    target = reward[1] + discount_factor * max_q * must_bootstrap[1]
+
+    max_q = q_values[1].max(dim=-1)
+
+    max = q_target[1][np.arange(len(max_q[1])), max_q[1]]
+
+    target = reward[1] + discount_factor * max * must_bootstrap[1]
     act = action[0].unsqueeze(dim=-1)
     qvals = q_values[0].gather(dim=1, index=act)
     qvals = qvals.squeeze(dim=1)
@@ -218,7 +222,6 @@ def run_dqn(cfg, logger, trial=None):
 
         # The q agent needs to be executed on the rb_workspace workspace (gradients are removed in workspace).
         q_agent(transition_workspace, t=0, n_steps=2, choose_action=False)
-
         q_values, terminated, reward, action = transition_workspace[
             "critic/q_values",
             "env/terminated",
@@ -230,7 +233,8 @@ def run_dqn(cfg, logger, trial=None):
             target_q_agent(transition_workspace, t=0, n_steps=2, stochastic=True)
         target_q_values = transition_workspace["critic/q_values"]
 
-        
+      
+
         # Determines whether values of the critic should be propagated
         # True if the task was not terminated.
         must_bootstrap = ~terminated
